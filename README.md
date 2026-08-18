@@ -32,45 +32,31 @@ For the hackathon submission criteria, here is the exact breakdown of how Kadmus
 
 ## 🏗️ End-to-End System Architecture
 
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                     AWS CLOUD                                           │
-│                                                                                         │
-│   ┌────────────────────────┐         ┌──────────────────────────────────────────────┐   │
-│   │ EVENTBRIDGE SCHEDULER  │ ──────► │        KADMUS HEARTBEAT LAMBDA               │   │
-│   │    rate(5 minutes)     │         │  • One heartbeat cycle per invocation        │   │
-│   └────────────────────────┘         │  • Plaid sync + anomaly detection            │   │
-│                                      │  • Telegram alert dispatch                   │   │
-│                                      └──────────────────┬───────────────────────────┘   │
-│                                                         │                               │
-│   ┌────────────────────────┐         ┌──────────────────────────────────────────────┐   │
-│   │ API GATEWAY HTTP API   │ ──────► │       TELEGRAM WEBHOOK LAMBDA               │   │
-│   │   /telegram webhook    │         │  • Verify secret • Enqueue • Return 200     │   │
-│   └───────────▲────────────┘         └──────────────────┬───────────────────────────┘   │
-│               │                                        ▼                               │
-│               │                      ┌──────────────────────────────────────────────┐   │
-│               │                      │ SQS FIFO ──► TELEGRAM AI WORKER LAMBDA       │   │
-│               │                      │ • Deduplicate update_id • Long MCP/AI jobs   │   │
-│               │                      └──────────────────────────────────────────────┘   │
-│   CloudWatch Logs • Secrets Manager • SQS Dead-Letter Queues                           │
-└───────────────┼─────────────────────────────────────────────────────────────────────────┘
-                │
-                ├───────────────────────────────────────┐
-                ▼                                       ▼
-┌────────────────────────────────┐     ┌──────────────────────────────────────────────────┐
-│        USER INTERFACE          │     │             COCKROACHDB CLUSTER                  │
-│                                │     │           (Distributed Memory Core)              │
-│  📱 Telegram Bot (@Kadmus)     │     │                                                  │
-│     • Proactive Anomaly Alerts │     │  1. Managed MCP Server (15 Native Tools via STDIO│
-│     • 2-Way Conversational Chat│     │  2. Distributed Vector Memory (VECTOR 768-dim)   │
-│     • /status & /alerts        │     │  3. Financial Views (spending & income history)  │
-│                                │     │  4. Transactional Store & Plaid Sync Cursors     │
-└────────────────────────────────┘     └────────────────────────┬─────────────────────────┘
-                                                                ▲
-                                                                │ Sync
-                                               ┌────────────────┴──────────────┐
-                                               │           PLAID API           │
-                                               │   (Sandbox Banking Data)      │
-                                               └───────────────────────────────┘
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                         AWS CLOUD                            │
+│                                                              │
+│  EventBridge ──▶ Heartbeat Lambda ──▶ CockroachDB           │
+│                         │                                    │
+│                         └────────────▶ Telegram alerts      │
+│                                                              │
+│  API Gateway ──▶ Webhook Lambda ──▶ SQS FIFO                │
+│                                         │                    │
+│                                         ▼                    │
+│                                Telegram Worker Lambda        │
+│                                         │                    │
+└─────────────────────────────────────────┼────────────────────┘
+                                          ▼
+                    ┌──────────────────────────────────┐
+                    │         CockroachDB Cloud        │
+                    │  • Managed MCP Server            │
+                    │  • Financial tables and views    │
+                    │  • 768-dimensional vector memory │
+                    │  • Verified recommendation data  │
+                    └──────────────────────────────────┘
+                                          │
+                                          ▼
+                              Telegram Bot (@Kadmus)
 ```
 ---
 
