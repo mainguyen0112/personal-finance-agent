@@ -32,18 +32,26 @@ For the hackathon submission criteria, here is the exact breakdown of how Kadmus
 
 ## 🏗️ End-to-End System Architecture
 
-```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                                     AWS CLOUD                                           │
 │                                                                                         │
 │   ┌────────────────────────┐         ┌──────────────────────────────────────────────┐   │
-│   │    AWS EC2 HOST        │         │             AMAZON BEDROCK / AI              │   │
-│   │  (24/7 Daemon Runner)  │         │          (Multi-Provider Cascade)            │   │
-│   │                        │         │                                              │   │
-│   │  • Heartbeat Loop (60s)│ ◄─────► │  • Amazon Bedrock (Nova Pro / Claude)        │   │
-│   │  • Telegram Bot Poller │         │  • Groq / Gemini Ultra-Fast Fallback         │   │
-│   │  • Anomaly Detector    │         └──────────────────────────────────────────────┘   │
-│   └───────────┬────────────┘                                                            │
+│   │ EVENTBRIDGE SCHEDULER  │ ──────► │        KADMUS HEARTBEAT LAMBDA               │   │
+│   │    rate(5 minutes)     │         │  • One heartbeat cycle per invocation        │   │
+│   └────────────────────────┘         │  • Plaid sync + anomaly detection            │   │
+│                                      │  • Telegram alert dispatch                   │   │
+│                                      └──────────────────┬───────────────────────────┘   │
+│                                                         │                               │
+│   ┌────────────────────────┐         ┌──────────────────────────────────────────────┐   │
+│   │ API GATEWAY HTTP API   │ ──────► │       TELEGRAM WEBHOOK LAMBDA               │   │
+│   │   /telegram webhook    │         │  • Verify secret • Enqueue • Return 200     │   │
+│   └───────────▲────────────┘         └──────────────────┬───────────────────────────┘   │
+│               │                                        ▼                               │
+│               │                      ┌──────────────────────────────────────────────┐   │
+│               │                      │ SQS FIFO ──► TELEGRAM AI WORKER LAMBDA       │   │
+│               │                      │ • Deduplicate update_id • Long MCP/AI jobs   │   │
+│               │                      └──────────────────────────────────────────────┘   │
+│   CloudWatch Logs • Secrets Manager • SQS Dead-Letter Queues                           │
 └───────────────┼─────────────────────────────────────────────────────────────────────────┘
                 │
                 ├───────────────────────────────────────┐
@@ -64,7 +72,6 @@ For the hackathon submission criteria, here is the exact breakdown of how Kadmus
                                                │   (Sandbox Banking Data)      │
                                                └───────────────────────────────┘
 ```
-
 ---
 
 ## 🛠️ Hackathon Requirements Matrix
